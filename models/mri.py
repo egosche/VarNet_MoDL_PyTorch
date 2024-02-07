@@ -8,6 +8,7 @@ import numpy as np
 
 import torch
 import torch.nn as nn
+import torchkbnufft as tkbn
 from typing import Optional, Tuple
 
 
@@ -56,47 +57,107 @@ class SenseOp():
     def __init__(self,
                  coil: torch.Tensor | np.ndarray,
                  mask: torch.Tensor | np.ndarray,
-                 traj: Optional[torch.Tensor | np.ndarray] = None):
+                 dcf : Optional[bool] = False,
+                 verbose=False,
+                 normalization=False,
+                 device=torch.device('cpu')):
         """
         Args:
-            coil: [N_batch, N_coil, N_y, N_x]
-            mask: [N_batch, N_y, N_x]
-            traj:
+            coil: [1, N_coil, N_y, N_x]
+            mask: [N_frames, N_spokes, N_samples, 2]  # radial trajectory
         """
 
         if isinstance(coil, np.ndarray):
             coil = torch.from_numpy(coil)
 
+        coil = coil.to(device)
+
         if isinstance(mask, np.ndarray):
             mask = torch.from_numpy(mask)
 
-        if (traj is not None) and isinstance(traj, np.ndarray):
-            traj = torch.from_numpy(traj)
-
+        mask = mask.to(device)
 
         self.coil = coil
         self.mask = mask
-        self.traj = traj
+        self.dcf = dcf
+        self.verbose = verbose
+        self.normalization = normalization
+        self.device = device
+
+        N_batch = coil.shape[0]
+        assert 1 == N_batch
+
+        assert 2 == mask.shape[-1]
+
+        self.N_samples = mask.shape[-2]
+        self.N_spokes  = mask.shape[-3]
+        self.N_frames  = mask.shape[-4]
+
+        base_res = int(self.N_samples//2)
+
+        im_size = [base_res] * 2
+        grid_size = [self.N_samples] * 2
+
+        self.ishape = [self.N_frames] + im_size
+
+        self.im_size = im_size
+        self.NUFFT_FWD = tkbn.KbNufft(im_size=im_size, grid_size=grid_size)
+        self.NUFFT_ADJ = tkbn.KbNufftAdjoint(im_size=im_size, grid_size=grid_size)
+
+        self.NUFFT_FWD = self.NUFFT_FWD.to(coil.device)
+        self.NUFFT_ADJ = self.NUFFT_ADJ.to(coil.device)
+
+    def _get_normalization_scale(self, nrm_0, nrm_1, output_dim):
+
+        if self.normalization:
+            if torch.all(nrm_1 == 0):
+                nrm_1 = nrm_1 + 1E-6
+            scale = nrm_0 / nrm_1
+            for _ in range(output_dim-1):
+                scale = scale.unsqueeze(1)
+        else:
+            scale = 1
+
+        return scale
 
     def fwd(self, input) -> torch.Tensor:
         """
-        SENSE Forward Operator: from image to k-space
+        SENSS Forward Operator: from image to k-space
         """
         if isinstance(input, np.ndarray):
             input = torch.from_numpy(input)
 
+        input = input.to(self.device)
+
+        if torch.is_floating_point(input):
+            input = input + 1j * torch.zeros_like(input)
+
         N_batch, N_coil, N_y, N_x = self.coil.shape
 
-        coils = torch.swapaxes(self.coil, 0, 1)
-        coils = coils * input
-        kfull = fftc(coils, norm='ortho')
+        nrm_0 = torch.linalg.norm(input, dim=(-2, -1)).flatten()
 
-        if self.traj is None:
-            # Cartesian sampling
-            output = torch.swapaxes(self.mask * kfull, 0, 1)
-        else:
-            # TODO: Radial sampling
-            None
+        output = []
+
+        for t in range(self.N_frames):
+
+            traj_t = torch.reshape(self.mask[..., t, :, :, :], (-1, 2)).transpose(1, 0)
+            imag_t = torch.squeeze(input[..., t, :, :]).unsqueeze(0).unsqueeze(0)
+
+            grid_t = self.NUFFT_FWD(imag_t, traj_t, smaps=self.coil)
+
+            if self.verbose:
+                print('> frame ', str(t).zfill(2))
+                print('  traj shape: ', traj_t.shape)
+                print('  imag shape: ', imag_t.shape)
+                print('  grid shape: ', grid_t.shape)
+
+            output.append(grid_t.detach().cpu().numpy())
+
+        output = torch.tensor(np.array(output)).to(self.coil)
+        nrm_1 = torch.linalg.norm(output, dim=(-2, -1)).flatten()
+
+        scale = self._get_normalization_scale(nrm_0, nrm_1, output.dim())
+        output = output * scale
 
         return output
 
@@ -107,17 +168,44 @@ class SenseOp():
         if isinstance(input, np.ndarray):
             input = torch.from_numpy(input)
 
-        kfull = torch.swapaxes(input, 0, 1)
+        input = input.to(self.device)
 
-        if self.traj is None:
-            # Cartesian sampling
-            kmask = torch.swapaxes(self.mask * kfull, 0, 1)
-            imask = ifftc(kmask, norm='ortho')
-        else:
-            # TODO: Radial sampling
-            None
+        if torch.is_floating_point(input):
+            input = input + 1j * torch.zeros_like(input)
 
-        output = torch.sum(imask * self.coil.conj(), dim=1)
+        nrm_0 = torch.linalg.norm(input, dim=(-2, -1)).flatten()
+
+        output = []
+
+        for t in range(self.N_frames):
+
+            traj_t = torch.reshape(self.mask[..., t, :, :, :], (-1, 2)).transpose(1, 0)
+
+            grid_t = input[t]
+
+            # density compensation function
+            if self.dcf:
+                comp_t = (traj_t[0, ...]**2 + traj_t[1, ...]**2)**0.5 + 1E-5
+                comp_t = comp_t.reshape(1, -1)
+                # comp_t = tkbn.calc_density_compensation_function(ktraj=traj_t, im_size=self.im_size)
+            else:
+                comp_t = 1.
+
+            imag_t = self.NUFFT_ADJ(grid_t * comp_t, traj_t, smaps=self.coil)
+
+            if self.verbose:
+                print('> frame ', str(t).zfill(2))
+                print('  traj shape: ', traj_t.shape)
+                print('  grid shape: ', grid_t.shape)
+                print('  grid shape: ', imag_t.shape)
+
+            output.append(imag_t.detach().cpu().numpy().squeeze())
+
+        output = torch.tensor(np.array(output)).to(self.coil)
+        nrm_1 = torch.linalg.norm(output, dim=(-2, -1)).flatten()
+
+        scale = self._get_normalization_scale(nrm_0, nrm_1, output.dim())
+        output = output * scale
 
         return output
 
