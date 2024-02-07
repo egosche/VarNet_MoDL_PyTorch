@@ -62,6 +62,9 @@ def get_model(model_name, model_params, device):
 def get_loss(loss_name):
     if loss_name == 'MSE':
         return nn.MSELoss()
+    elif loss_name == 'SSIM':
+        from loss import SSIMLoss
+        return SSIMLoss()
 
 def get_score_fs(score_names):
     score_fs = {}
