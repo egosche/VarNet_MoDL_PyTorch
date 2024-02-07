@@ -37,22 +37,20 @@ class modl_dataset(Dataset):
 
 def undersample_(gt, csm, mask, sigma):
 
-    ncoil, nrow, ncol = csm.shape
+    ncoil, nrow, ncol = csm.shape  # this assumes batch size of 1
     csm = csm[None, ...]  # 4dim
 
-    # shift sampling mask to k-space center
-    mask = np.fft.ifftshift(mask, axes=(-2, -1))
+    SenseOp = mri.SenseOp(csm, mask, dcf=True, verbose=False)
 
-    SenseOp = mri.SenseOp(csm, mask)
-
-    b = SenseOp.fwd(gt)
+    b = SenseOp.fwd(gt).detach().cpu().numpy()
 
     noise = torch.randn(b.shape) + 1j * torch.randn(b.shape)
     noise = noise * sigma / (2.**0.5)
 
-    atb = SenseOp.adj(b + noise).squeeze(0).detach().numpy()
+    # add noise to k-space data
+    # atb = SenseOp.adj(b + noise).squeeze(0).detach().numpy()
 
-    return atb
+    return b
 
 
 def undersample(gt, csm, mask, sigma):
