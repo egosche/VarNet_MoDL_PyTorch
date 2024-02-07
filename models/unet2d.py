@@ -3,6 +3,9 @@ Copyright (c) Facebook, Inc. and its affiliates.
 
 This source code is licensed under the MIT license found in the
 LICENSE file in the root directory of this source tree.
+
+Author:
+    Zhengguo Tan <zhengguo.tan@gmail.com>
 """
 
 import torch
@@ -12,7 +15,7 @@ from torch.nn import functional as F
 
 class Unet(nn.Module):
     """
-    PyTorch implementation of a U-Net model.
+    PyTorch implementation of a 2D U-Net model.
 
     O. Ronneberger, P. Fischer, and Thomas Brox. U-net: Convolutional networks
     for biomedical image segmentation. In International Conference on Medical
