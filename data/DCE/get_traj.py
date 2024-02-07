@@ -13,9 +13,6 @@ device = sp.Device(0 if torch.cuda.is_available() else -1)
 # %%
 parser = argparse.ArgumentParser(description='run nufft & cs reconstruction.')
 
-parser.add_argument('--src_file', type=str, default='BC29',
-                    help='src (source) data directory [default: BC29]')
-
 parser.add_argument('--time', type=int, default=22)
 
 parser.add_argument('--spokes', type=int, default=13)
