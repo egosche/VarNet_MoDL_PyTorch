@@ -3,6 +3,7 @@
 *.mat
 *.pth
 *.0
+slurm.sh
 
 # Editors
 .vscode/
