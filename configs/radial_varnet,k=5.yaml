@@ -1,0 +1,25 @@
+config_name: radial_varnet
+description: "base config, k=5. Restore weights from <base_varnet,k=1>"
+
+n_layers: 3
+k_iters: 5
+epochs: 40
+
+dataset_name: modl_dataset
+dataset_params:
+  dataset_path: 'data/DCE/dataset.hdf5'
+  sigma: 0.01
+val_data: False
+batch_size: 1
+
+model_name: base_varnet
+
+restore_weights: False #False, best, inter, final
+restore_path: 'workspace/2023-12-24_base_varnet_layer-03_iter-05_epoch-040_loss-MSE_optim-Adam_lr-0.010000_restore-final/checkpoints/'
+
+loss_name: MSE
+score_names: ['PSNR', 'SSIM']
+optim_name: Adam
+optim_params:
+  lr: 0.01
+gradient_clip: True
