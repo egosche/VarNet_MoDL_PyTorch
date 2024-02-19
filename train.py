@@ -132,9 +132,9 @@ def main(args):
                 writers[phase].add_scalar(score_name, score, epoch)
             if args.write_lr:
                 writers[phase].add_scalar('lr', optimizer.param_groups[0]['lr'], epoch)
-            if args.write_image > 0 and (epoch % args.write_image == 0):
-                writers[phase].add_figure('img', display_img(np.abs(r2c(x[-1].detach().cpu().numpy())), mask[-1].detach().cpu().numpy(), \
-                    y[-1], y_pred[-1], epoch_score[val_score_name]), epoch)
+            # if args.write_image > 0 and (epoch % args.write_image == 0):
+            #     writers[phase].add_figure('img', display_img(np.abs(r2c(x[-1].detach().cpu().numpy())), mask[-1].detach().cpu().numpy(), \
+            #         y[-1], y_pred[-1], epoch_score[val_score_name]), epoch)
             if args.write_lambda:
                 print('lam:', model.dc.lam.item())
                 writers['train'].add_scalar('lambda', model.dc.lam.item(), epoch)
@@ -160,7 +160,7 @@ def main(args):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="")
-    parser.add_argument("--config", type=str, required=False, default="configs/base_modl,k=10.yaml",
+    parser.add_argument("--config", type=str, required=False, default="configs/radial_varnet,k=5.yaml",
                         help="config file path")
     parser.add_argument("--workspace", type=str, default='./workspace')
     parser.add_argument("--tensorboard_dir", type=str, default='./runs')
