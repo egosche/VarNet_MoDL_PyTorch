@@ -13,7 +13,7 @@ def setup(args):
     config_path = args.config
     with open(config_path, "r") as fr:
         configs = yaml.load(fr, Loader=yaml.FullLoader)
-    device = 'cuda'
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     #read configs =================================
     n_layers = configs['n_layers']
@@ -34,8 +34,10 @@ def setup(args):
     config_name = configs['config_name']
 
     workspace = config_output_dir(args.workspace, configs)
+    # workspace = args.workspace
     checkpoints_dir, log_dir = get_dirs(workspace) #workspace/config_name/checkpoints ; workspace/config_name/log.txt
     tensorboard_dir = config_output_dir(args.tensorboard_dir, configs)
+    # tensorboard_dir = args.tensorboard_dir
     logger = Logger(log_dir)
     writer = get_writers(tensorboard_dir, ['test'])['test']
 
@@ -46,6 +48,7 @@ def setup(args):
     #restore
     saver = CheckpointSaver(checkpoints_dir)
     prefix = 'best' if configs['val_data'] else 'final'
+    print('> checkpoints_dir: ', checkpoints_dir)
     checkpoint_path = [os.path.join(checkpoints_dir, f) for f in os.listdir(checkpoints_dir) if f.startswith(prefix)][0]
     model = saver.load_model(checkpoint_path, model)
 
@@ -81,9 +84,9 @@ def main(args):
 
         for score_name, score_f in score_fs.items():
             running_score[score_name] += score_f(y, y_pred) * y_pred.shape[0]
-        if args.write_image > 0 and (i % args.write_image == 0):
-            writer.add_figure('img', display_img(np.abs(r2c(x[-1].detach().cpu().numpy())), mask[-1].detach().cpu().numpy(), \
-                y[-1], y_pred[-1], psnr(y[-1], y_pred[-1])), i)
+        # if args.write_image > 0 and (i % args.write_image == 0):
+        #     writer.add_figure('img', display_img(np.abs(r2c(x[-1].detach().cpu().numpy())), mask[-1].detach().cpu().numpy(), \
+        #         y[-1], y_pred[-1], psnr(y[-1], y_pred[-1])), i)
 
     epoch_score = {score_name: score / len(dataloader.dataset) for score_name, score in running_score.items()}
     for score_name, score in epoch_score.items():
