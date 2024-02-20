@@ -24,8 +24,16 @@ class data_consistency(nn.Module):
         self.lam = nn.Parameter(torch.tensor(1.), requires_grad=False)
 
     def get_max_eig(self, coil, mask, dcf=True):
-        # compute maximal eigenvalue:
+        r""" compute maximal eigenvalue
 
+        References:
+            * Beck A, Teboulle M.
+              A Fast Iterative Shrinkage-Thresholding Algorithm for Linear Inverse Problems.
+              SIAM J Imaging Sci (2009). DOI: https://doi.org/10.1137/080716542
+            * Tan Z, Hohage T, Kalentev O, Joseph AA, Wang X, Voit D, Merboldt KD, Frahm J.
+              An eigenvalue approach for the automatic scaling of unknowns in model-based reconstructions: Application to real-time phase-contrast flow MRI.
+              NMR Biomed (2017). DOI: https://doi.org/10.1002/nbm.3835
+        """
         A = mri.SenseOp(coil, mask, dcf=True)
 
         x = torch.randn(size=A.ishape, dtype=coil.dtype)
