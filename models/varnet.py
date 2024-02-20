@@ -26,7 +26,7 @@ class data_consistency(nn.Module):
     def get_max_eig(self, coil, mask, dcf=True):
         # compute maximal eigenvalue:
 
-        A = mri.SenseOp(coil, mask, dcf=True)
+        A = mri.SenseOp(coil, mask, dcf=True, device=coil.device)
 
         x = torch.randn(size=A.ishape, dtype=coil.dtype)
         for _ in range(30):
