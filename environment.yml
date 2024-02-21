@@ -1,0 +1,11 @@
+name: varnet
+channels:
+  - conda-forge
+dependencies:
+  - python==3.10.13
+  - pip
+  - pip:
+    - -r requirements.txt
+
+# After installing the requirements mentioned above, install the custom sigpy 
+# package using pip install git+https://github.com/ZhengguoTan/sigpy@master
