@@ -34,7 +34,7 @@ class data_consistency(nn.Module):
               An eigenvalue approach for the automatic scaling of unknowns in model-based reconstructions: Application to real-time phase-contrast flow MRI.
               NMR Biomed (2017). DOI: https://doi.org/10.1002/nbm.3835
         """
-        A = mri.SenseOp(coil, mask, dcf=True)
+        A = mri.SenseOp(coil, mask, dcf=True, device=coil.device)
 
         x = torch.randn(size=A.ishape, dtype=coil.dtype)
         for _ in range(30):
