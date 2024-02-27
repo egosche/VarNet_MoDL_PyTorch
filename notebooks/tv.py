@@ -134,7 +134,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
-    parser.add_argument("--file_path", type=str, default='./data/DCE/BC29/')
+    parser.add_argument("--file_path", type=str, default='./data/DCE/BC31/')
     parser.add_argument("--n_spokes", type=int, default=13)
     args = parser.parse_args()
 

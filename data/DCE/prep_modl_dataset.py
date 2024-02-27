@@ -14,7 +14,7 @@ print('> file dir: ', DIR)
 # %%
 parser = argparse.ArgumentParser(description='prepare dataset for modl training and testing.')
 
-parser.add_argument('--N_training', type=int, default=10,
+parser.add_argument('--N_training', type=int, default=17,
                     help='number of training data.')
 
 args = parser.parse_args()

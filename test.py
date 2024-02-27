@@ -100,7 +100,7 @@ def main(args):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="")
-    parser.add_argument("--config", type=str, required=False, default="configs/base_modl,k=1.yaml",
+    parser.add_argument("--config", type=str, required=False, default="configs/radial_varnet,k=5.yaml",
                         help="config file path")
     parser.add_argument("--workspace", type=str, default='./workspace')
     parser.add_argument("--tensorboard_dir", type=str, default='./runs')
