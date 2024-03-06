@@ -7,6 +7,7 @@ Author:
 
 import h5py
 import os
+import pathlib
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -41,36 +42,49 @@ M, N = find_two_ints(len(data_dirs))
 # %%
 fig_width = 4
 fig_height = 4
-fig, ax = plt.subplots(M, N, figsize=(N*fig_height, M*fig_width))
-props = dict(boxstyle='round', facecolor='cyan', alpha=0.3)
+
+origs = []
 
 for d in range(len(data_dirs)):
 
     dat = data_dirs[d]
 
-    m = int(d / N)
-    n = int(d % N)
-
-    print('ind %3d <-> (%3d, %3d)' % (d, m, n))
-
     f = sio.loadmat(DIR + '/' + dat + '/cart_images.mat')
-    cart_image = np.transpose(f['simImg'])[0]
-    cart_image = np.swapaxes(cart_image, 0, 1)
-    N_y, N_x = cart_image.shape
+    cart_image = np.transpose(f['simImg'])
+    cart_image = np.swapaxes(cart_image, -2, -1)
+    origs.append(cart_image)
 
-    ax[m][n].imshow(abs(cart_image), cmap='gray',
-                    interpolation=None)
-    ax[m][n].set_axis_off()
-    ax[m][n].text(0.02 * N_x, 0.08 * N_y, dat,
-                  bbox=props, color='w', fontsize=24)
+origs = np.array(origs)
 
-    if d >= 18:
-        rect = patches.Rectangle((0, 0), N_y, N_x,
-                                 linewidth=4, edgecolor='r',
-                                 facecolor='none')
 
-        ax[m][n].add_patch(rect)
+for f in range(origs.shape[1]):
 
-plt.subplots_adjust(wspace=0, hspace=0)
-plt.savefig(DIR + '/gt.png',
-            bbox_inches='tight', pad_inches=0, dpi=300)
+    print('> frame ' + str(f).zfill(2))
+
+    fig, ax = plt.subplots(M, N, figsize=(N*fig_height, M*fig_width))
+    props = dict(boxstyle='round', facecolor='cyan', alpha=0.3)
+
+    for v in range(origs.shape[0]):
+
+        vmax = np.amax(abs(origs[v])) * 0.8
+
+        N_y, N_x = origs.shape[-2:]
+
+        m = int(v / N)
+        n = int(v % N)
+
+        ax[m][n].imshow(abs(origs[v, f, ...]), cmap='gray',
+                        interpolation=None, vmin=0, vmax=vmax)
+        ax[m][n].set_axis_off()
+
+        if v >= 18:
+            rect = patches.Rectangle((0, 0), N_y, N_x,
+                                    linewidth=4, edgecolor='r',
+                                    facecolor='none')
+
+            ax[m][n].add_patch(rect)
+
+    plt.subplots_adjust(wspace=0, hspace=0)
+    plt.savefig(DIR + '/frame_' + str(f).zfill(2) + '.png',
+                bbox_inches='tight', pad_inches=0, dpi=100)
+    plt.close()
