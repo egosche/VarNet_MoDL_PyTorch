@@ -1,5 +1,6 @@
 import numpy as np
-from scipy.interpolate import interp1d
+
+from scipy.interpolate import pchip_interpolate
 from scipy.ndimage import binary_dilation, gaussian_filter
 from skimage.morphology import disk
 
@@ -18,6 +19,16 @@ def _generate_random_params(p0, ktrans_range):
     return params, par_ktrans
 
 
+def _add_field(struct_arr, new_field_data, field_descr):
+    if struct_arr.dtype.fields is None:
+        raise ValueError('Input array must be a structured numpy array')
+    b = np.empty(struct_arr.shape, dtype=struct_arr.dtype.descr + field_descr)
+    for name in struct_arr.dtype.names:
+        b[name] = struct_arr[name]
+    b[field_descr[0][0]] = new_field_data
+    return b
+
+
 def gen_simIMG2(data, idx=None, B1=None, parMap=None):
     if idx is None:
         idx = np.random.randint(0, len(data))
@@ -25,36 +36,35 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None):
     par_var = 0.1
     par_var_t = 0.2
     t = np.linspace(0, 150, 22)
-    mask = data[idx]['mask']
-
-    aif = data[idx]['AIF']
-    S0 = data[idx]['S0']
+    mask = data[idx]['mask'].item()
+    aif = data[idx]['AIF'].item()
+    S0 = data[idx]['S0'].item()
 
     if B1 is None:
         B1 = np.ones_like(S0)
 
-    ID = data[idx]['ID']
-    smap = np.double(data[idx]['smap'])
+    ID = str(data[idx]['ID'])
+    smap = np.real(data[idx]['smap'].item()).astype(np.float64)
     print(ID)
 
-    if 'heart' not in mask:
+    if 'heart' not in mask.dtype.names:
         mask['heart'] = np.zeros_like(S0, dtype=bool)
-    if 'liver' not in mask:
+    if 'liver' not in mask.dtype.names:
         mask['liver'] = np.zeros_like(S0, dtype=bool)
-    if 'skin' not in mask:
+    if 'skin' not in mask.dtype.names:
         mask['skin'] = np.zeros_like(S0, dtype=bool)
-    if 'muscle' not in mask:
+    if 'muscle' not in mask.dtype.names:
         mask['muscle'] = np.zeros_like(S0, dtype=bool)
-    if 'benign' not in mask:
+    if 'benign' not in mask.dtype.names:
         mask['benign'] = np.zeros_like(S0, dtype=bool)
-    if 'malignant' not in mask:
+    if 'malignant' not in mask.dtype.names:
         mask['malignant'] = np.zeros_like(S0, dtype=bool)
-    if 'heart_blood' not in mask:
-        mask['heart_blood'] = mask['heart']
+    if 'heart_blood' not in mask.dtype.names:
+        mask = _add_field(mask, mask['heart'], [('heart_blood', '|O')])
 
     nbase = np.where((aif < 0.15) & (t < 300))[0][-1]
     t_1s = np.arange(0, t[-1] + 1)
-    aifci = interp1d(t, aif, kind='pchip')(t_1s)
+    aifci = pchip_interpolate(t, aif, t_1s)
 
     nx, ny = S0.shape
     mask_inner = mask['heart'] | mask['liver']
@@ -74,7 +84,7 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None):
 
     T10 = np.zeros((nx, ny))
     for tissue, value in T1.items():
-        T10[mask[tissue]] = value
+        T10[mask[tissue].item()] = value
 
     temp = T10.copy()
     temp = gaussian_filter(temp, sigma=10)
@@ -179,8 +189,7 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None):
         # Initialize parMap as a zeros matrix of size (nx, ny, 4)
         parMap = np.zeros((nx, ny, 4))
 
-        # Loop over the range 1 to 4 (inclusive)
-        for i in range(1, 5):
+        for i in range(4):
             # Initialize a temporary matrix filled with zeros
             temp = np.zeros((nx, ny))
 
@@ -188,40 +197,42 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None):
             randMap = p0_glandular[i - 1] * (
                 (1 - par_var) + (par_var * 2) * np.random.rand(nx, ny)
             )
-            temp[mask.glandular] = randMap[mask.glandular]
+            temp[mask['glandular'].item()] = randMap[mask['glandular'].item()]
 
             randMap = p0_malignant[i - 1] * (
                 (1 - par_var_t) + (par_var_t * 2) * np.random.rand(nx, ny)
             )
-            temp[mask.malignant] = randMap[mask.malignant]
+            temp[mask['malignant'].item()] = randMap[mask['malignant'].item()]
 
             randMap = p0_benign[i - 1] * (
                 (1 - par_var_t) + (par_var_t * 2) * np.random.rand(nx, ny)
             )
-            temp[mask.benign] = randMap[mask.benign]
+            temp[mask['benign'].item()] = randMap[mask['benign'].item()]
 
             randMap = p0_liver[i - 1] * (
                 (1 - par_var) + (par_var * 2) * np.random.rand(nx, ny)
             )
-            temp[mask.liver] = randMap[mask.liver]
+            temp[mask['liver'].item()] = randMap[mask['liver'].item()]
 
             randMap = p0_muscle[i - 1] * (
                 (1 - par_var) + (par_var * 2) * np.random.rand(nx, ny)
             )
-            temp[mask.muscle] = randMap[mask.muscle]
+            temp[mask['muscle'].item()] = randMap[mask['muscle'].item()]
 
             randMap = p0_skin[i - 1] * (
                 (1 - par_var) + (par_var * 2) * np.random.rand(nx, ny)
             )
-            temp[mask.skin] = randMap[mask.skin]
+            temp[mask['skin'].item()] = randMap[mask['skin'].item()]
 
             randMap = p0_vascular[i - 1] * np.ones((nx, ny))
-            temp[mask.vascular] = randMap[mask.vascular]
+            temp[mask['vascular'].item()] = randMap[mask['vascular'].item()]
 
             randMap = p0_heart[i - 1] * (
                 (1 - par_var) + (par_var * 2) * np.random.rand(nx, ny)
             )
-            temp[mask.heart_blood] = randMap[mask.heart_blood]
+            temp[mask['heart_blood'].item()] = randMap[
+                mask['heart_blood'].item()
+            ]
 
             # Assign the temporary matrix to the corresponding slice of parMap
             parMap[:, :, i - 1] = temp
@@ -303,7 +314,7 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None):
         rIdx, cIdx = np.where(parMap[:, :, 2] > 0)
         for i in range(len(rIdx)):
             temp_aif = np.squeeze(aifci_1s[rIdx[i], cIdx[i], :])
-            f = interp1d(t_1s, temp_aif, kind='pchip', fill_value="extrapolate")
+            f = pchip_interpolate(t_1s, temp_aif, fill_value="extrapolate")
             aifci_Map[rIdx[i], cIdx[i], :] = f(ti)
 
         # Adjust parMap values and apply Gaussian filter
