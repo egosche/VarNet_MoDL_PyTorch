@@ -16,7 +16,7 @@ def _generate_random_params(p0, ktrans_range):
         par_ktrans = _fun_ktrans(params)
         if ktrans_range[0] <= par_ktrans <= ktrans_range[1]:
             break
-    return params, par_ktrans
+    return params
 
 
 def _add_field(struct_arr, new_field_data, field_descr):
@@ -67,7 +67,7 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None):
     aifci = pchip_interpolate(t, aif, t_1s)
 
     nx, ny = S0.shape
-    mask_inner = mask['heart'] | mask['liver']
+    mask_inner = mask['heart'].item() | mask['liver'].item()
     selem = disk(4)
     mask_inner = binary_dilation(mask_inner, selem)
 
@@ -241,14 +241,14 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None):
         aifci_1s = np.zeros((nx, ny, len(t_1s)))
 
         # Iterate over mask.liver
-        rIdx, cIdx = np.where(mask.liver == 1)  # 10s delay
+        rIdx, cIdx = np.where(mask['liver'].item() == 1)  # 10s delay
         for i in range(len(rIdx)):
             aifci_1s[rIdx[i], cIdx[i], :] = aifci[
                 np.concatenate(([1] * 10, np.arange(1, len(t_1s) - 9)))
             ]
 
         # Iterate over mask.glandular
-        rIdx, cIdx = np.where(mask.glandular == 1)  # 15s delay
+        rIdx, cIdx = np.where(mask['glandular'].item() == 1)  # 15s delay
         for i in range(len(rIdx)):
             aifci_1s[rIdx[i], cIdx[i], :] = aifci[
                 np.concatenate(([1] * 15, np.arange(1, len(t_1s) - 14)))
@@ -256,34 +256,34 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None):
 
         # Iterate over mask.vascular or mask.heart_blood
         rIdx, cIdx = np.where(
-            (mask.vascular | mask.heart_blood) == 1
+            (mask['vascular'].item() | mask['heart_blood'].item()) == 1
         )  # 0s delay
         for i in range(len(rIdx)):
             aifci_1s[rIdx[i], cIdx[i], :] = aifci
 
         # Iterate over mask.malignant
-        rIdx, cIdx = np.where(mask.malignant == 1)  # 3s delay
+        rIdx, cIdx = np.where(mask['malignant'].item() == 1)  # 3s delay
         for i in range(len(rIdx)):
             aifci_1s[rIdx[i], cIdx[i], :] = aifci[
                 np.concatenate(([1] * 3, np.arange(1, len(t_1s) - 2)))
             ]
 
         # Iterate over mask.benign
-        rIdx, cIdx = np.where(mask.benign == 1)  # 8s delay
+        rIdx, cIdx = np.where(mask['benign'].item() == 1)  # 8s delay
         for i in range(len(rIdx)):
             aifci_1s[rIdx[i], cIdx[i], :] = aifci[
                 np.concatenate(([1] * 8, np.arange(1, len(t_1s) - 7)))
             ]
 
         # Iterate over mask.muscle
-        rIdx, cIdx = np.where(mask.muscle == 1)  # 7s delay
+        rIdx, cIdx = np.where(mask['muscle'].item() == 1)  # 7s delay
         for i in range(len(rIdx)):
             aifci_1s[rIdx[i], cIdx[i], :] = aifci[
                 np.concatenate(([1] * 7, np.arange(1, len(t_1s) - 6)))
             ]
 
         # Iterate over mask.skin
-        rIdx, cIdx = np.where(mask.skin == 1)  # 10s delay
+        rIdx, cIdx = np.where(mask['skin'].item() == 1)  # 10s delay
         for i in range(len(rIdx)):
             aifci_1s[rIdx[i], cIdx[i], :] = aifci[
                 np.concatenate(([1] * 5, np.arange(1, len(t_1s) - 4)))
@@ -314,8 +314,9 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None):
         rIdx, cIdx = np.where(parMap[:, :, 2] > 0)
         for i in range(len(rIdx)):
             temp_aif = np.squeeze(aifci_1s[rIdx[i], cIdx[i], :])
-            f = pchip_interpolate(t_1s, temp_aif, fill_value="extrapolate")
-            aifci_Map[rIdx[i], cIdx[i], :] = f(ti)
+            aifci_Map[rIdx[i], cIdx[i], :] = pchip_interpolate(
+                t_1s, temp_aif, ti
+            )
 
         # Adjust parMap values and apply Gaussian filter
         parMap[parMap == 0] = 1e-8
@@ -365,18 +366,20 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None):
         fp = parMap[:, :, 2]
         ktrans = parMap[:, :, 3]
 
-        Ce = np.zeros((nx, ny, len(ti)))
-        Cp = np.zeros((nx, ny, len(ti)))
+        Ce = np.zeros((parMap.shape[0], parMap.shape[1], aifci_Map.shape[2]))
+        Cp = np.zeros((parMap.shape[0], parMap.shape[1], aifci_Map.shape[2]))
 
-        for i in range(1, len(ti)):
+        for i in range(1, aifci_Map.shape[2]):
             dt = ti[i] - ti[i - 1]
             dcp = fp * aifci_Map[:, :, i - 1] - (fp + ktrans) * Cp[:, :, i - 1]
             dce = ktrans * Cp[:, :, i - 1]
             Cp[:, :, i] = Cp[:, :, i - 1] + dcp * dt / vp
             Ce[:, :, i] = Ce[:, :, i - 1] + dce * dt / ve
 
-        # Calculate concentration-time curves (cts)
-        cts = Cp * vp[:, :, None] + Ce
+        cts = Cp * np.tile(
+            vp[:, :, np.newaxis], (1, 1, len(ti))
+        ) + Ce * np.tile(ve, (parMap.shape[0], parMap.shape[1], len(ti)))
+        cts = cts[:, :, logIdx]
 
         # Handling NaN values
         nan_mask = np.isnan(cts)
@@ -389,16 +392,16 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None):
         vp = parMap[:, :, 1]
         ktrans = parMap[:, :, 3]
 
-        Ce = np.zeros((nx, ny, len(ti)))
-        Cp = np.zeros((nx, ny, len(ti)))
+        Ce = np.zeros((parMap.shape[0], parMap.shape[1], aifci_Map.shape[2]))
+        Cp = np.zeros((parMap.shape[0], parMap.shape[1], aifci_Map.shape[2]))
 
-        for i in range(1, len(ti)):
+        for i in range(1, aifci_Map.shape[2]):
             dt = ti[i] - ti[i - 1]
             dce = ktrans * aifci_Map[:, :, i - 1]
             Ce[:, :, i] = Ce[:, :, i - 1] + dce * dt / ve
 
-        # Calculate concentration-time curves (cts)
-        cts = aifci_Map * vp[:, :, None] + Ce
+        cts = aifci_Map * np.tile(vp[..., np.newaxis], (1, 1, len(ti))) + Ce
+        cts = cts[:, :, logIdx]
 
         # Handling NaN values
         nan_mask = np.isnan(cts)
@@ -408,12 +411,18 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None):
         cts_eTofts = np.copy(cts)
 
         # Define mask_epm and mask_eTofts
-        mask_epm = mask['glandular'] | mask['skin'] | mask['muscle']
-        mask_epm = np.tile(mask_epm[:, :, np.newaxis], (1, 1, cts.shape[2]))
-        mask_eTofts = mask['vascular']
+        mask_epm = (
+            mask['glandular'].item()
+            | mask['skin'].item()
+            | mask['muscle'].item()
+        )
+        mask_epm = np.tile(
+            mask_epm[:, :, np.newaxis], (1, 1, cts.shape[2])
+        ).astype(bool)
+        mask_eTofts = mask['vascular'].item()
         mask_eTofts = np.tile(
             mask_eTofts[:, :, np.newaxis], (1, 1, cts.shape[2])
-        )
+        ).astype(bool)
 
         # Combine cts_epm and cts_eTofts based on masks
         cts_tcm[mask_epm] = cts_epm[mask_epm]
