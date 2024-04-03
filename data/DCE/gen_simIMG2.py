@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.typing as npt
 
 from scipy.interpolate import pchip_interpolate
 from scipy.ndimage import binary_dilation, gaussian_filter
@@ -6,11 +7,27 @@ from skimage.morphology import disk
 
 
 def _fun_ktrans(x):
+    """Calculate ktrans value.
+
+    Args:
+        x: Input.
+
+    Returns:
+        Ktrans value.
+    """
     return x[2] * (1 - np.exp(-x[3] / x[2]))
 
 
-# Function to generate random parameter values within specified ranges
 def _generate_random_params(p0, ktrans_range):
+    """Function to generate random parameter values within specified ranges
+
+    Args:
+        p0: p0.
+        ktrans_range: ktrans range.
+
+    Returns:
+        Random parameter.
+    """
     while True:
         params = p0[:, 0] + (p0[:, 1] - p0[:, 0]) * np.random.rand(4)
         par_ktrans = _fun_ktrans(params)
@@ -19,7 +36,22 @@ def _generate_random_params(p0, ktrans_range):
     return params
 
 
-def _add_field(struct_arr, new_field_data, field_descr):
+def _add_field(
+    struct_arr: npt.NDArray, new_field_data: npt.NDArray, field_descr: list
+) -> npt.NDArray:
+    """Adds a field with the given specification to a structured numpy array.
+
+    Args:
+        struct_arr: Structured numpy.
+        new_field_data: Value for the new field.
+        field_descr: Description for the new field.
+
+    Raises:
+        ValueError: Raised if given array is not a structured numpy array.
+
+    Returns:
+        Structured numpy array containing the new field.
+    """
     if struct_arr.dtype.fields is None:
         raise ValueError('Input array must be a structured numpy array')
     b = np.empty(struct_arr.shape, dtype=struct_arr.dtype.descr + field_descr)
@@ -29,24 +61,52 @@ def _add_field(struct_arr, new_field_data, field_descr):
     return b
 
 
-def gen_simIMG2(data, idx=None, B1=None, parMap=None):
+def gen_simIMG2(data, idx=None, B1=None, parMap=None) -> tuple[
+    npt.NDArray,
+    npt.NDArray,
+    npt.NDArray,
+    str,
+    npt.NDArray,
+    npt.NDArray,
+    npt.NDArray,
+    npt.NDArray,
+]:
+    """Generate synthetic DCE MR data.
+
+    Args:
+        data: Data of all subjects.
+        idx: Subject index. Defaults to None.
+        B1: B1. Defaults to None.
+        parMap: parMap. Defaults to None.
+
+    Returns:
+        Simulated image (simImg), simulated sensitivity map (smap),
+        parameter map (parMap), temp, ID, Arterial Input Function (aif),
+        T10, aifci_1s, concentration-time curves (cts)
+    """
+    # If no subject index provided, select a random one
     if idx is None:
         idx = np.random.randint(0, len(data))
 
     par_var = 0.1
     par_var_t = 0.2
-    t = np.linspace(0, 150, 22)
-    mask = data[idx]['mask'].item()
-    aif = data[idx]['AIF'].item()
-    S0 = data[idx]['S0'].item()
+    t = np.linspace(0, 150, 22)  # Time points
+    mask = data[idx]['mask'].item()  # Mask for the subject
+    aif = data[idx]['AIF'].item()  # Arterial Input Function
+    S0 = data[idx]['S0'].item()  # Initial signal intensity
 
+    # If B1 field not provided, assume uniform
     if B1 is None:
         B1 = np.ones_like(S0)
 
+    # Subject ID
     ID = str(data[idx]['ID'])
-    smap = np.real(data[idx]['smap'].item()).astype(np.float64)
     print(ID)
 
+    # Sensitivity map
+    smap = np.real(data[idx]['smap'].item()).astype(np.float64)
+
+    # Add missing fields to the mask if they don't exist
     if 'heart' not in mask.dtype.names:
         mask['heart'] = np.zeros_like(S0, dtype=bool)
     if 'liver' not in mask.dtype.names:
@@ -62,6 +122,7 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None):
     if 'heart_blood' not in mask.dtype.names:
         mask = _add_field(mask, mask['heart'], [('heart_blood', '|O')])
 
+    # Interpolate AIF to have samples at every second
     nbase = np.where((aif < 0.15) & (t < 300))[0][-1]
     t_1s = np.arange(0, t[-1] + 1)
     aifci = pchip_interpolate(t, aif, t_1s)
@@ -71,6 +132,7 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None):
     selem = disk(4)
     mask_inner = binary_dilation(mask_inner, selem)
 
+    # T1 relaxation times for different tissues
     T1 = {
         'glandular': 1.324,
         'malignant': 1.5,
@@ -82,6 +144,7 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None):
         'vascular': 1.93,
     }
 
+    # Assign T1 values to the corresponding tissue regions in the mask
     T10 = np.zeros((nx, ny))
     for tissue, value in T1.items():
         T10[mask[tissue].item()] = value
@@ -90,6 +153,7 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None):
     temp = gaussian_filter(temp, sigma=10)
     T10[mask_inner] = temp[mask_inner]
 
+    # If parameter map not provided, use default values
     if parMap is None:
         p0 = {
             'glandular': np.array(
