@@ -438,6 +438,7 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None):
         TR = 4.87e-3
         theta = 10 * np.pi / 180
         theta = theta * B1
+        theta = np.expand_dims(theta, axis=-1)
         r1 = 4.3
         T1_t = 1 / (1 / T10[:, :, np.newaxis] + r1 * cts)
 
