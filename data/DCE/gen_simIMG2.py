@@ -263,7 +263,6 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None) -> tuple[
             randMap = p0_glandular[i] * (
                 (1 - par_var) + (par_var * 2) * np.random.rand(nx, ny)
             )
-            np.save('randMap.npy', randMap)
             temp[mask['glandular'].item().astype(bool)] = randMap[
                 mask['glandular'].item().astype(bool)
             ]
@@ -371,7 +370,7 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None) -> tuple[
             ]
 
         # Initialize ti
-        ti = np.arange(0, t[-1], 0.1)
+        ti = np.arange(0, t[-1] + 0.1, 0.1)
 
         # Initialize logIdx as a zeros array of length len(ti)
         logIdx = np.zeros(len(ti))
@@ -415,11 +414,13 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None) -> tuple[
         fp = parMap[:, :, 2]
         ktrans = parMap[:, :, 3]
 
-        # Calculate concentration-time curves (cts)
-        Ce = np.zeros((nx, ny, len(ti)))
-        Cp = np.zeros((nx, ny, len(ti)))
+        print(f'aifci: {aifci_Map.shape[2]}')
 
-        for i in range(1, len(ti)):
+        # Calculate concentration-time curves (cts)
+        Ce = np.zeros((parMap.shape[0], parMap.shape[1], aifci_Map.shape[2]))
+        Cp = np.zeros((parMap.shape[0], parMap.shape[1], aifci_Map.shape[2]))
+
+        for i in range(1, aifci_Map.shape[2]):
             dt = ti[i] - ti[i - 1]
             dcp = (
                 fp * aifci_Map[:, :, i - 1]
@@ -430,8 +431,9 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None) -> tuple[
             Cp[:, :, i] = Cp[:, :, i - 1] + dcp * dt / vp
             Ce[:, :, i] = Ce[:, :, i - 1] + dce * dt / ve
 
-        # Calculate concentration-time curves (cts)
-        cts = Cp * vp[:, :, None] + Ce * ve[:, :, None]
+        cts = Cp * np.tile(
+            vp[:, :, np.newaxis], (1, 1, len(ti))
+        ) + Ce * np.tile(ve[:, :, np.newaxis], (1, 1, len(ti)))
         cts = cts[:, :, logIdx]
 
         # Optionally handle NaN values
@@ -449,6 +451,9 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None) -> tuple[
 
         Ce = np.zeros((parMap.shape[0], parMap.shape[1], aifci_Map.shape[2]))
         Cp = np.zeros((parMap.shape[0], parMap.shape[1], aifci_Map.shape[2]))
+        print(f'Ce: {Ce.shape}')
+        print(f'Cp: {Cp.shape}')
+        print(f'vp: {vp.shape}')
 
         for i in range(1, aifci_Map.shape[2]):
             dt = ti[i] - ti[i - 1]
@@ -462,9 +467,15 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None) -> tuple[
         ) + Ce * np.tile(ve, (parMap.shape[0], parMap.shape[1], len(ti)))
         cts = cts[:, :, logIdx]
 
-        # Handling NaN values
-        nan_mask = np.isnan(cts)
-        cts[nan_mask] = 0
+        print(f'cts: {cts.shape}')
+        print(f'ti: {len(ti)}')
+
+        np.save('cts.npy', cts)
+        print('saved')
+
+        # # Handling NaN values
+        # nan_mask = np.isnan(cts)
+        # cts[nan_mask] = 0
 
         # Assign cts to cts_epm
         cts_epm = np.copy(cts)
