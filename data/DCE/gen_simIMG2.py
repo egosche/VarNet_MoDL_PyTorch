@@ -128,7 +128,9 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None) -> tuple[
     aifci = pchip_interpolate(t, aif, t_1s)
 
     nx, ny = S0.shape
-    mask_inner = mask['heart'].item() | mask['liver'].item()
+    mask_inner = mask['heart'].item().astype(bool) | mask[
+        'liver'
+    ].item().astype(bool)
     selem = disk(4)
     mask_inner = binary_dilation(mask_inner, selem)
 
@@ -147,8 +149,8 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None) -> tuple[
     # Assign T1 values to the corresponding tissue regions in the mask
     T10 = np.zeros((nx, ny))
     for tissue, value in T1.items():
-        T10[mask[tissue].item()] = value
-
+        T10[mask[tissue].item().astype(bool)] = value
+    T10[T10 == 0] = 1
     temp = T10.copy()
     temp = gaussian_filter(temp, sigma=10)
     T10[mask_inner] = temp[mask_inner]
@@ -258,48 +260,63 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None) -> tuple[
             temp = np.zeros((nx, ny))
 
             # Generate random maps for different tissue types and assign them to the temp matrix
-            randMap = p0_glandular[i - 1] * (
+            randMap = p0_glandular[i] * (
                 (1 - par_var) + (par_var * 2) * np.random.rand(nx, ny)
             )
-            temp[mask['glandular'].item()] = randMap[mask['glandular'].item()]
+            np.save('randMap.npy', randMap)
+            temp[mask['glandular'].item().astype(bool)] = randMap[
+                mask['glandular'].item().astype(bool)
+            ]
 
-            randMap = p0_malignant[i - 1] * (
+            randMap = p0_malignant[i] * (
                 (1 - par_var_t) + (par_var_t * 2) * np.random.rand(nx, ny)
             )
-            temp[mask['malignant'].item()] = randMap[mask['malignant'].item()]
+            temp[mask['malignant'].item().astype(bool)] = randMap[
+                mask['malignant'].item().astype(bool)
+            ]
 
-            randMap = p0_benign[i - 1] * (
+            randMap = p0_benign[i] * (
                 (1 - par_var_t) + (par_var_t * 2) * np.random.rand(nx, ny)
             )
-            temp[mask['benign'].item()] = randMap[mask['benign'].item()]
+            temp[mask['benign'].item().astype(bool)] = randMap[
+                mask['benign'].item().astype(bool)
+            ]
 
-            randMap = p0_liver[i - 1] * (
+            randMap = p0_liver[i] * (
                 (1 - par_var) + (par_var * 2) * np.random.rand(nx, ny)
             )
-            temp[mask['liver'].item()] = randMap[mask['liver'].item()]
+            temp[mask['liver'].item().astype(bool)] = randMap[
+                mask['liver'].item().astype(bool)
+            ]
 
-            randMap = p0_muscle[i - 1] * (
+            randMap = p0_muscle[i] * (
                 (1 - par_var) + (par_var * 2) * np.random.rand(nx, ny)
             )
-            temp[mask['muscle'].item()] = randMap[mask['muscle'].item()]
+            temp[mask['muscle'].item().astype(bool)] = randMap[
+                mask['muscle'].item().astype(bool)
+            ]
 
-            randMap = p0_skin[i - 1] * (
+            randMap = p0_skin[i] * (
                 (1 - par_var) + (par_var * 2) * np.random.rand(nx, ny)
             )
-            temp[mask['skin'].item()] = randMap[mask['skin'].item()]
+            temp[mask['skin'].item().astype(bool)] = randMap[
+                mask['skin'].item().astype(bool)
+            ]
 
-            randMap = p0_vascular[i - 1] * np.ones((nx, ny))
-            temp[mask['vascular'].item()] = randMap[mask['vascular'].item()]
+            randMap = p0_vascular[i] * np.ones((nx, ny))
+            temp[mask['vascular'].item().astype(bool)] = randMap[
+                mask['vascular'].item().astype(bool)
+            ]
 
-            randMap = p0_heart[i - 1] * (
+            randMap = p0_heart[i] * (
                 (1 - par_var) + (par_var * 2) * np.random.rand(nx, ny)
             )
-            temp[mask['heart_blood'].item()] = randMap[
-                mask['heart_blood'].item()
+            temp[mask['heart_blood'].item().astype(bool)] = randMap[
+                mask['heart_blood'].item().astype(bool)
             ]
 
             # Assign the temporary matrix to the corresponding slice of parMap
-            parMap[:, :, i - 1] = temp
+            parMap[:, :, i] = temp
 
         # Initialize aifci_1s as a zeros array of size (nx, ny, len(t_1s))
         aifci_1s = np.zeros((nx, ny, len(t_1s)))
