@@ -414,8 +414,6 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None) -> tuple[
         fp = parMap[:, :, 2]
         ktrans = parMap[:, :, 3]
 
-        print(f'aifci: {aifci_Map.shape[2]}')
-
         # Calculate concentration-time curves (cts)
         Ce = np.zeros((parMap.shape[0], parMap.shape[1], aifci_Map.shape[2]))
         Cp = np.zeros((parMap.shape[0], parMap.shape[1], aifci_Map.shape[2]))
@@ -451,9 +449,6 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None) -> tuple[
 
         Ce = np.zeros((parMap.shape[0], parMap.shape[1], aifci_Map.shape[2]))
         Cp = np.zeros((parMap.shape[0], parMap.shape[1], aifci_Map.shape[2]))
-        print(f'Ce: {Ce.shape}')
-        print(f'Cp: {Cp.shape}')
-        print(f'vp: {vp.shape}')
 
         for i in range(1, aifci_Map.shape[2]):
             dt = ti[i] - ti[i - 1]
@@ -466,12 +461,6 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None) -> tuple[
             vp[:, :, np.newaxis], (1, 1, len(ti))
         ) + Ce * np.tile(ve, (parMap.shape[0], parMap.shape[1], len(ti)))
         cts = cts[:, :, logIdx]
-
-        print(f'cts: {cts.shape}')
-        print(f'ti: {len(ti)}')
-
-        np.save('cts.npy', cts)
-        print('saved')
 
         # # Handling NaN values
         # nan_mask = np.isnan(cts)
