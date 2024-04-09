@@ -390,8 +390,8 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None) -> tuple[
         # Initialize aifci_Map as a zeros array of size (nx, ny, len(ti))
         aifci_Map = np.zeros((nx, ny, len(ti)))
 
-        # Iterate over parMap[:,:,2] > 0
-        rIdx, cIdx = np.where(parMap[:, :, 2] > 0)
+        # Iterate over parMap[:,:,1] > 0
+        rIdx, cIdx = np.where(parMap[:, :, 1] > 0)
         for i in range(len(rIdx)):
             temp_aif = np.squeeze(aifci_1s[rIdx[i], cIdx[i], :])
             aifci_Map[rIdx[i], cIdx[i], :] = pchip_interpolate(
