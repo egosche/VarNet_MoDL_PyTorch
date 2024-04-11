@@ -104,7 +104,7 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None) -> tuple[
     print(ID)
 
     # Sensitivity map
-    smap = np.real(data[idx]['smap'].item()).astype(np.float64)
+    smap = np.cdouble(data['smap'].item())
 
     # Add missing fields to the mask if they don't exist
     if 'heart' not in mask.dtype.names:
