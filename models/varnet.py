@@ -16,15 +16,16 @@ from typing import Optional, Tuple
 from utils import r2c, c2r
 from models import mri, unet2d
 
+
 # %%
 class data_consistency(nn.Module):
     def __init__(self) -> None:
         super().__init__()
 
-        self.lam = nn.Parameter(torch.tensor(1.), requires_grad=False)
+        self.lam = nn.Parameter(torch.tensor(1.0), requires_grad=False)
 
     def get_max_eig(self, coil, mask, dcf=True):
-        r""" compute maximal eigenvalue
+        r"""compute maximal eigenvalue
 
         References:
             * Beck A, Teboulle M.
@@ -46,21 +47,23 @@ class data_consistency(nn.Module):
 
         return max_eig
 
-    def forward(self,
-                curr_x: torch.Tensor,
-                x0: torch.Tensor,
-                coil: torch.Tensor,
-                mask: torch.Tensor,
-                max_eig: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        curr_x: torch.Tensor,
+        x0: torch.Tensor,
+        coil: torch.Tensor,
+        mask: torch.Tensor,
+        max_eig: torch.Tensor,
+    ) -> torch.Tensor:
 
-        A = mri.SenseOp(coil, mask, dcf=True,
-                        device=coil.device)
+        A = mri.SenseOp(coil, mask, dcf=True, device=coil.device)
 
         grad = A.adj(A.fwd(curr_x) - x0)
 
         next_x = curr_x - (self.lam / max_eig) * grad
 
         return next_x
+
 
 # %%
 class VarNet(nn.Module):
@@ -70,7 +73,12 @@ class VarNet(nn.Module):
 
         self.n_cascades = k_iters
         self.dc = data_consistency()
-        self.dw = nn.ModuleList([unet2d.Unet(44, 44, num_pool_layers=n_layers).float() for _ in range(k_iters)])
+        self.dw = nn.ModuleList(
+            [
+                unet2d.Unet(44, 44, num_pool_layers=n_layers).float()
+                for _ in range(k_iters)
+            ]
+        )
 
     def forward(self, x0, coil, mask):
 
@@ -79,7 +87,10 @@ class VarNet(nn.Module):
         if x0.shape[0] == 1:
             x0 = x0.squeeze(0)
 
-        x  = torch.zeros(size=[mask.shape[-4]] + [int(mask.shape[-2]//2)] * 2, dtype=coil.dtype).to(x0)
+        x = torch.zeros(
+            size=[mask.shape[-4]] + [int(mask.shape[-2] // 2)] * 2,
+            dtype=coil.dtype,
+        ).to(x0)
 
         max_eig = self.dc.get_max_eig(coil, mask).to(x0)
 
