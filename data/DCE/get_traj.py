@@ -25,6 +25,7 @@ args = parser.parse_args()
 
 # %%
 
+
 def sim_traj(N_time=22, N_spokes=13, base_res=320, golden_idx=2):
 
     N_tot_spokes = N_spokes * N_time
@@ -41,12 +42,12 @@ def sim_traj(N_time=22, N_spokes=13, base_res=320, golden_idx=2):
     traj[..., 0] = np.cos(base_rot) @ base_lin
     traj[..., 1] = np.sin(base_rot) @ base_lin
 
-    # traj = traj / 2
+    traj = traj / 2
 
     traj = traj.reshape(N_time, N_spokes, N_samples, 2)
 
     # scale to [-pi, pi]
-    traj = traj / base_res * np.pi
+    # traj = traj / base_res * np.pi
 
     return traj
 
