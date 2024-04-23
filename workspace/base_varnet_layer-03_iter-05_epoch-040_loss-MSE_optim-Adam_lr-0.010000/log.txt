@@ -1,7 +1,0 @@
-config path: configs/radial_varnet,k=5.yaml
-workspace: ./workspace/base_varnet_layer-03_iter-05_epoch-040_loss-MSE_optim-Adam_lr-0.010000
-description: base config, k=5. Restore weights from <base_varnet,k=1>
-
-
-train start: 2024-04-16 15:43:29
------------------------
