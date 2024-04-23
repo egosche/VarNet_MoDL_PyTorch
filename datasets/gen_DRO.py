@@ -140,9 +140,15 @@ def gen_DRO(data) -> tuple[
 
     # Assign T1 values to the corresponding tissue regions in the mask
     T10 = np.zeros((nx, ny))
-    for tissue, value in T1.items():
-        T10[mask[tissue].item().astype(bool)] = value
-    T10[T10 == 0] = 1
+    T10[mask['glandular'].item().astype(bool)] = T1['glandular']
+    T10[mask['malignant'].item().astype(bool)] = T1['malignant']
+    T10[mask['benign'].item().astype(bool)] = T1['benign']
+    T10[mask['liver'].item().astype(bool)] = T1['liver']
+    T10[mask['heart'].item().astype(bool)] = T1['heart']
+    T10[mask['muscle'].item().astype(bool)] = T1['muscle']
+    T10[mask['skin'].item().astype(bool)] = T1['skin']
+    T10[mask['vascular'].item().astype(bool)] = T1['heart']
+    # Replace zeros with 1
     temp = T10.copy()
     temp = gaussian_filter(temp, sigma=10)
     T10[mask_inner] = temp[mask_inner]
