@@ -132,3 +132,6 @@ dmypy.json
 
 # Slurm
 slurm*
+
+# Archive
+archive/
