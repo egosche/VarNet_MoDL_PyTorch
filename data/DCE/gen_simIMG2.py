@@ -1,6 +1,5 @@
 import numpy as np
 import numpy.typing as npt
-
 from scipy.interpolate import pchip_interpolate
 from scipy.ndimage import binary_dilation, gaussian_filter
 from skimage.morphology import disk
@@ -157,6 +156,7 @@ def gen_simIMG2(data, idx=None, B1=None, parMap=None) -> tuple[
     T10[mask['skin'].item().astype(bool)] = T1['skin']
     T10[mask['vascular'].item().astype(bool)] = T1['heart']
     # Replace zeros with 1
+    T10 = np.where(T10 == 0, 1, T10)
     temp = T10.copy()
     temp = gaussian_filter(temp, sigma=10)
     T10[mask_inner] = temp[mask_inner]
